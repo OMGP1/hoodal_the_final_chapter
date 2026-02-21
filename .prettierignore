@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+prisma/migrations
+frontend/node_modules
+frontend/dist
+*.min.js
+*.min.css
+package-lock.json
