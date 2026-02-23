@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -72,6 +72,9 @@ export default function ProductFormPage() {
     const isEditing = !!id;
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isPerishable, setIsPerishable] = useState(false);
     const [isActive, setIsActive] = useState(true);
     const [categoryId, setCategoryId] = useState('');
@@ -122,8 +125,39 @@ export default function ProductFormPage() {
             setIsActive(product.isActive);
             setCategoryId(product.categoryId || '');
             setUnitOfMeasure(product.unitOfMeasure);
+            if (product.imageUrl) {
+                const apiBase = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+                const fullUrl = product.imageUrl.startsWith('http') ? product.imageUrl : `${apiBase}${product.imageUrl}`;
+                setImagePreview(fullUrl);
+                setImageUrl(product.imageUrl);
+            }
         }
     }, [product, setValue]);
+
+    const handleImageUpload = async (file: File) => {
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+            const res = await api.post('/products/upload-image', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const url = res.data.data.imageUrl;
+            setImageUrl(url);
+            const apiBase = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+            setImagePreview(url.startsWith('http') ? url : `${apiBase}${url}`);
+            toast.success('Image uploaded');
+        } catch {
+            toast.error('Failed to upload image');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) handleImageUpload(file);
+    };
 
     const createMutation = useMutation({
         mutationFn: async (data: CreateProductData) => {
@@ -166,6 +200,7 @@ export default function ProductFormPage() {
             mrp: data.mrp || undefined,
             maxStockLevel: data.maxStockLevel || undefined,
             shelfLifeDays: isPerishable ? data.shelfLifeDays : undefined,
+            imageUrl: imageUrl || undefined,
         };
 
         if (isEditing) {
@@ -431,8 +466,23 @@ export default function ProductFormPage() {
                                 <CardTitle>Product Image</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                                    {imagePreview ? (
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+                                <div
+                                    className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                                    onClick={() => !imagePreview && fileInputRef.current?.click()}
+                                >
+                                    {uploadingImage ? (
+                                        <div className="py-8 flex flex-col items-center gap-2">
+                                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                            <p className="text-sm text-muted-foreground">Uploading…</p>
+                                        </div>
+                                    ) : imagePreview ? (
                                         <div className="relative">
                                             <img
                                                 src={imagePreview}
@@ -444,19 +494,35 @@ export default function ProductFormPage() {
                                                 variant="destructive"
                                                 size="icon"
                                                 className="absolute top-2 right-2 h-8 w-8"
-                                                onClick={() => setImagePreview(null)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setImagePreview(null);
+                                                    setImageUrl(null);
+                                                }}
                                             >
                                                 <X className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="sm"
+                                                className="absolute bottom-2 right-2"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    fileInputRef.current?.click();
+                                                }}
+                                            >
+                                                Change
                                             </Button>
                                         </div>
                                     ) : (
                                         <div className="py-8">
                                             <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
                                             <p className="text-sm text-muted-foreground">
-                                                Drag & drop or click to upload
+                                                Click to upload image
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                PNG, JPG up to 5MB
+                                                PNG, JPG, WebP up to 5MB
                                             </p>
                                         </div>
                                     )}

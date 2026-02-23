@@ -72,6 +72,35 @@ router.delete(
 // ==================== PRODUCT ROUTES ====================
 
 /**
+ * @route   POST /api/v1/products/upload-image
+ * @desc    Upload a product image
+ * @access  Private (products.write)
+ */
+router.post(
+    '/upload-image',
+    authorize(PERMISSIONS.PRODUCTS_WRITE),
+    (req, res, next) => {
+        const { uploadProductImage } = require('../middleware/upload.middleware');
+        uploadProductImage(req, res, (err: any) => {
+            if (err) {
+                return res.status(400).json({
+                    success: false,
+                    error: { code: 'UPLOAD_ERROR', message: err.message },
+                });
+            }
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    error: { code: 'UPLOAD_ERROR', message: 'No image file provided' },
+                });
+            }
+            const imageUrl = `/uploads/products/${req.file.filename}`;
+            res.json({ success: true, data: { imageUrl } });
+        });
+    }
+);
+
+/**
  * @route   GET /api/v1/products/low-stock
  * @desc    Get products below reorder level
  * @access  Private (inventory.read)

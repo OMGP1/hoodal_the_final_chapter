@@ -1,4 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
+import { PERMISSIONS } from '@/config/permissions';
 import {
     LayoutDashboard,
     Package,
@@ -7,6 +9,7 @@ import {
     FileText,
     Truck,
     Users,
+    UserCircle,
     DollarSign,
     BarChart3,
     Settings,
@@ -23,8 +26,9 @@ interface NavItem {
     title: string;
     href?: string;
     icon: React.ElementType;
-    children?: { title: string; href: string }[];
+    children?: { title: string; href: string; permissions?: string[] }[];
     badge?: number;
+    permissions?: string[];
 }
 
 const navItems: NavItem[] = [
@@ -32,71 +36,90 @@ const navItems: NavItem[] = [
         title: 'Dashboard',
         href: '/dashboard',
         icon: LayoutDashboard,
+        permissions: [PERMISSIONS.DASHBOARD_VIEW],
     },
     {
         title: 'Products',
         icon: Package,
+        permissions: [PERMISSIONS.PRODUCTS_READ],
         children: [
-            { title: 'All Products', href: '/products' },
-            { title: 'Categories', href: '/products/categories' },
-            { title: 'Low Stock', href: '/products/low-stock' },
+            { title: 'All Products', href: '/products', permissions: [PERMISSIONS.PRODUCTS_READ] },
+            { title: 'Categories', href: '/products/categories', permissions: [PERMISSIONS.PRODUCTS_READ] },
+            { title: 'Low Stock', href: '/products/low-stock', permissions: [PERMISSIONS.PRODUCTS_READ] },
         ],
     },
     {
         title: 'Inventory',
         icon: Boxes,
+        permissions: [PERMISSIONS.INVENTORY_READ],
         children: [
-            { title: 'Stock Levels', href: '/inventory' },
-            { title: 'Stock Movements', href: '/inventory/movements' },
-            { title: 'Expiring Items', href: '/inventory/expiring' },
+            { title: 'Stock Levels', href: '/inventory', permissions: [PERMISSIONS.INVENTORY_READ] },
+            { title: 'Stock Movements', href: '/inventory/movements', permissions: [PERMISSIONS.INVENTORY_READ] },
+            { title: 'Expiring Items', href: '/inventory/expiring', permissions: [PERMISSIONS.INVENTORY_READ] },
         ],
     },
     {
         title: 'POS',
-        href: '/pos',
         icon: ShoppingCart,
+        permissions: [PERMISSIONS.POS_ACCESS],
+        children: [
+            { title: 'POS Terminal', href: '/pos', permissions: [PERMISSIONS.POS_ACCESS] },
+            { title: 'Sales History', href: '/pos/sales-history', permissions: [PERMISSIONS.SALES_READ] },
+        ],
     },
     {
         title: 'Purchase Orders',
         icon: FileText,
+        permissions: [PERMISSIONS.PURCHASE_READ],
         children: [
-            { title: 'All Orders', href: '/purchases' },
-            { title: 'Create Order', href: '/purchases/new' },
-            { title: 'Receive Goods', href: '/purchases/receive' },
+            { title: 'All Orders', href: '/purchases', permissions: [PERMISSIONS.PURCHASE_READ] },
+            { title: 'Create Order', href: '/purchases/new', permissions: [PERMISSIONS.PURCHASE_CREATE] },
+            { title: 'Receive Goods', href: '/purchases/receive', permissions: [PERMISSIONS.PURCHASE_RECEIVE] },
         ],
     },
     {
         title: 'Suppliers',
         href: '/suppliers',
         icon: Truck,
+        permissions: [PERMISSIONS.SUPPLIERS_READ],
+    },
+    {
+        title: 'Customers',
+        href: '/customers',
+        icon: UserCircle,
+        permissions: [PERMISSIONS.CUSTOMERS_READ], // Usually just READ is enough to see the page
     },
     {
         title: 'Staff',
         icon: Users,
+        permissions: [PERMISSIONS.STAFF_READ], // Even staff need to read their own attendance, but the backend handles specific logic. We let anyone with STAFF_READ see this link. (Staff shouldn't see "All Staff", maybe we should let Admin/Manager handle that, but for now we'll put STAFF_READ here)
         children: [
-            { title: 'All Staff', href: '/staff' },
-            { title: 'Attendance', href: '/staff/attendance' },
-            { title: 'Leave Requests', href: '/staff/leaves' },
+            { title: 'All Staff', href: '/staff', permissions: [PERMISSIONS.STAFF_WRITE] }, // Only managers/admins can usually modify or see all staff
+            { title: 'Attendance', href: '/staff/attendance', permissions: [PERMISSIONS.STAFF_READ] },
+            { title: 'Leave Requests', href: '/staff/leaves', permissions: [PERMISSIONS.STAFF_READ] },
         ],
     },
     {
         title: 'Expenses',
         href: '/expenses',
         icon: DollarSign,
+        permissions: [PERMISSIONS.EXPENSES_READ],
     },
     {
         title: 'Reports',
         icon: BarChart3,
+        permissions: [PERMISSIONS.REPORTS_VIEW],
         children: [
-            { title: 'Sales Report', href: '/reports/sales' },
-            { title: 'Inventory Report', href: '/reports/inventory' },
-            { title: 'Profit & Loss', href: '/reports/profit-loss' },
+            { title: 'Sales Report', href: '/reports/sales', permissions: [PERMISSIONS.REPORTS_VIEW] },
+            { title: 'Inventory Report', href: '/reports/inventory', permissions: [PERMISSIONS.REPORTS_VIEW] },
+            { title: 'Profit & Loss', href: '/reports/profit-loss', permissions: [PERMISSIONS.REPORTS_FINANCIAL] },
         ],
     },
     {
         title: 'Settings',
         href: '/settings',
         icon: Settings,
+        permissions: [PERMISSIONS.SETTINGS_READ],
     },
 ];
 
@@ -149,7 +172,7 @@ function NavItemComponent({ item }: { item: NavItem }) {
                 </Button>
                 {isExpanded && (
                     <div className="ml-4 mt-1 space-y-1 border-l-2 border-sidebar-border pl-3">
-                        {item.children.map((child) => (
+                        {item.children.map((child) => child && (
                             <Link
                                 key={child.href}
                                 to={child.href}
@@ -186,6 +209,27 @@ function NavItemComponent({ item }: { item: NavItem }) {
 
 export function Sidebar() {
     const { sidebarCollapsed } = useUIStore();
+    const user = useAuthStore((state) => state.user);
+    const userPermissions = user?.permissions || [];
+
+    const hasPermission = (permissions?: string[]) => {
+        if (!permissions || permissions.length === 0) return true;
+        return permissions.some((perm) => userPermissions.includes(perm));
+    };
+
+    // Filter items based on permissions
+    const authorizedNavItems = navItems
+        .filter((item) => hasPermission(item.permissions))
+        .map((item) => {
+            if (item.children) {
+                return {
+                    ...item,
+                    children: item.children.filter((child) => hasPermission(child.permissions))
+                };
+            }
+            return item;
+        })
+        .filter(item => !item.children || item.children.length > 0); // Don't show parents with 0 children
 
     return (
         <aside
@@ -214,7 +258,7 @@ export function Sidebar() {
             {/* Navigation */}
             <ScrollArea className="h-[calc(100vh-4rem)] py-4">
                 <nav className={cn('space-y-1', sidebarCollapsed ? 'px-2' : 'px-3')}>
-                    {navItems.map((item) => (
+                    {authorizedNavItems.map((item) => (
                         <NavItemComponent key={item.title} item={item} />
                     ))}
                 </nav>

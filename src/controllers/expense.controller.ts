@@ -9,6 +9,12 @@ export const createExpense = asyncHandler(async (req: Request, res: Response) =>
     sendSuccess(res, expense, 'Expense created', 201);
 });
 
+export const updateExpense = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const expense = await expenseService.updateExpense(req.params.id, req.body, user.id);
+    sendSuccess(res, expense, 'Expense updated');
+});
+
 export const processExpense = asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     const { id } = req.params;

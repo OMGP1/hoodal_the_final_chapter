@@ -82,6 +82,17 @@ router.get(
 );
 
 /**
+ * @route   PUT /api/v1/expenses/:id
+ * @desc    Update an expense
+ * @access  Private (expense write permission)
+ */
+router.put(
+    '/:id',
+    authorize(PERMISSIONS.EXPENSES_WRITE),
+    expenseController.updateExpense
+);
+
+/**
  * @route   POST /api/v1/expenses/:id/process
  * @desc    Approve or reject expense
  * @access  Private (expense approve permission)

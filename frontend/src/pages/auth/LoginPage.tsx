@@ -54,30 +54,26 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
-            {/* Background decoration */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl" />
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
-            </div>
-
-            <Card className="w-full max-w-md relative shadow-2xl border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
-                <CardHeader className="space-y-1 text-center pb-8">
+        <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+            <Card className="w-full max-w-md shadow-lg border-border">
+                <CardHeader className="space-y-1 text-center pb-8 pt-8">
                     <div className="flex justify-center mb-4">
-                        <div className="p-3 rounded-2xl bg-primary/10 ring-1 ring-primary/20">
+                        <div className="p-3 rounded-xl bg-primary/10">
                             <Package className="h-10 w-10 text-primary" />
                         </div>
                     </div>
-                    <CardTitle className="text-2xl font-bold tracking-tight">Welcome back</CardTitle>
+                    <CardTitle className="text-2xl font-bold tracking-tight">
+                        Welcome back
+                    </CardTitle>
                     <CardDescription className="text-muted-foreground">
                         Sign in to your account to continue
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-8 pb-8">
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                         <div className="space-y-2">
                             <Label htmlFor="email" className="text-sm font-medium">
-                                Email
+                                Email Address
                             </Label>
                             <Input
                                 id="email"
@@ -88,7 +84,7 @@ export default function LoginPage() {
                                 {...register('email')}
                             />
                             {errors.email && (
-                                <p className="text-sm text-destructive">{errors.email.message}</p>
+                                <p className="text-sm text-destructive font-medium">{errors.email.message}</p>
                             )}
                         </div>
 
@@ -120,7 +116,7 @@ export default function LoginPage() {
                                 </Button>
                             </div>
                             {errors.password && (
-                                <p className="text-sm text-destructive">{errors.password.message}</p>
+                                <p className="text-sm text-destructive font-medium">{errors.password.message}</p>
                             )}
                         </div>
 
@@ -133,22 +129,22 @@ export default function LoginPage() {
                                 />
                                 <Label
                                     htmlFor="rememberMe"
-                                    className="text-sm font-normal text-muted-foreground cursor-pointer"
+                                    className="text-sm font-medium text-muted-foreground cursor-pointer"
                                 >
                                     Remember me
                                 </Label>
                             </div>
                             <Link
                                 to="/forgot-password"
-                                className="text-sm text-primary hover:underline underline-offset-4"
+                                className="text-sm text-primary font-medium hover:underline underline-offset-4"
                             >
                                 Forgot password?
                             </Link>
                         </div>
 
                         {error && (
-                            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                                <p className="text-sm text-destructive">{error}</p>
+                            <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                                <p className="text-sm text-destructive font-medium text-center">{error}</p>
                             </div>
                         )}
 
@@ -168,10 +164,10 @@ export default function LoginPage() {
                         </Button>
                     </form>
 
-                    <div className="mt-6 text-center text-sm text-muted-foreground">
-                        <span>Don't have an account? </span>
-                        <Link to="/register" className="text-primary font-medium hover:underline underline-offset-4">
-                            Contact admin
+                    <div className="mt-6 text-center text-sm">
+                        <span className="text-muted-foreground">Don't have an account? </span>
+                        <Link to="#" className="text-primary font-medium hover:underline underline-offset-4">
+                            Contact Admin
                         </Link>
                     </div>
                 </CardContent>

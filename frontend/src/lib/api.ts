@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
+import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -46,6 +47,12 @@ api.interceptors.response.use(
                 authStore.logout();
                 window.location.href = '/login';
             }
+        } else if (error.response?.status && error.response.status >= 500) {
+            // Global handler for server errors
+            toast.error('A server error occurred. Please try again later.');
+        } else if (error.code === 'ERR_NETWORK') {
+            // Global handler for network errors
+            toast.error('Network error. Please check your connection.');
         }
 
         return Promise.reject(error);

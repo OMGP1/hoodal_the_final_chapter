@@ -73,6 +73,7 @@ export class AuthService {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role?.name,
+                permissions: ROLE_PERMISSIONS[defaultRole.name] || [],
             },
             tokens,
         };
@@ -133,6 +134,7 @@ export class AuthService {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role?.name,
+                permissions: ROLE_PERMISSIONS[roleName] || [],
             },
             tokens,
         };

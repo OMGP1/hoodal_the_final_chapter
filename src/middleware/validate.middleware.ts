@@ -28,6 +28,8 @@ export function validate(schema: ZodSchema, source: 'body' | 'query' | 'params' 
                     message: err.message,
                 }));
 
+                console.error('Validation failure details:', JSON.stringify(details, null, 2));
+
                 sendError(
                     res,
                     ErrorCodes.VALIDATION_ERROR,

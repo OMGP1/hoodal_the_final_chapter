@@ -2,21 +2,24 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 import { env } from './config/env';
 import { API_PREFIX } from './config/constants';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { auditLog } from './middleware/audit.middleware';
 import { logger } from './utils/logger';
 
 // Create Express app
 const app: Express = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors({
-    origin: env.CORS_ORIGIN,
+    origin: env.CORS_ORIGIN.split(',').map(o => o.trim()),
     credentials: true,
 }));
 
@@ -27,26 +30,21 @@ app.use(express.urlencoded({ extended: true }));
 // Compression
 app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    max: env.RATE_LIMIT_MAX_REQUESTS,
-    message: {
-        success: false,
-        error: {
-            code: 'RATE_LIMIT_ERROR',
-            message: 'Too many requests, please try again later',
-        },
-        timestamp: new Date().toISOString(),
-    },
-});
-app.use(limiter);
+// Rate limiting — general safety net (tiered limiters applied per-route)
+import { generalLimiter } from './middleware/rateLimit.middleware';
+app.use(generalLimiter);
 
 // Request logging middleware
 app.use((req, _res, next) => {
     logger.info(`${req.method} ${req.path}`);
     next();
 });
+
+// Audit logging (non-blocking, logs all mutations)
+app.use(auditLog());
+
+// Static file serving (uploaded product images etc.)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // API routes
 app.use(API_PREFIX, routes);

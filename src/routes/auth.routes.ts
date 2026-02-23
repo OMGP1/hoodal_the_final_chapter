@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as authController from '../controllers/auth.controller';
 import { validate } from '../middleware/validate.middleware';
 import { authenticate } from '../middleware/auth.middleware';
+import { loginLimiter, authLimiter } from '../middleware/rateLimit.middleware';
 import {
     loginSchema,
     registerSchema,
@@ -14,22 +15,25 @@ const router = Router();
  * @route   POST /api/v1/auth/register
  * @desc    Register new user
  * @access  Public
+ * @limit   10 requests / 15 min
  */
-router.post('/register', validate(registerSchema), authController.register);
+router.post('/register', authLimiter, validate(registerSchema), authController.register);
 
 /**
  * @route   POST /api/v1/auth/login
  * @desc    Login user
  * @access  Public
+ * @limit   5 requests / 15 min (strict — prevents brute force)
  */
-router.post('/login', validate(loginSchema), authController.login);
+router.post('/login', loginLimiter, validate(loginSchema), authController.login);
 
 /**
  * @route   POST /api/v1/auth/refresh-token
  * @desc    Refresh access token
  * @access  Public
+ * @limit   10 requests / 15 min
  */
-router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
+router.post('/refresh-token', authLimiter, validate(refreshTokenSchema), authController.refreshToken);
 
 /**
  * @route   POST /api/v1/auth/logout

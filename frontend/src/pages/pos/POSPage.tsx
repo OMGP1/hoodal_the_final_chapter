@@ -9,13 +9,15 @@ import { ProductGrid } from '@/components/pos/ProductGrid';
 import { CartPanel } from '@/components/pos/CartPanel';
 import { PaymentModal, type PaymentData } from '@/components/pos/PaymentModal';
 import { HeldOrdersModal } from '@/components/pos/HeldOrdersModal';
+import { CustomerSelectModal } from '@/components/pos/CustomerSelectModal';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { usePOSKeyboard, POS_SHORTCUTS } from '@/hooks/usePOSKeyboard';
 import { useCartStore, useCartTotals } from '@/stores/cartStore';
 import { useHeldOrdersStore, type HeldOrder } from '@/stores/heldOrdersStore';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
-import type { Product } from '@/types';
+import type { Product, PaginatedResponse } from '@/types';
 
 export default function POSPage() {
     const navigate = useNavigate();
@@ -25,6 +27,8 @@ export default function POSPage() {
     // Modal states
     const [showPayment, setShowPayment] = useState(false);
     const [showHeldOrders, setShowHeldOrders] = useState(false);
+    const [showCustomerSelect, setShowCustomerSelect] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
 
     // Cart store
     const addItem = useCartStore((state) => state.addItem);
@@ -46,24 +50,33 @@ export default function POSPage() {
         [addItem]
     );
 
-    // Barcode scanner integration
-    const { data: productByBarcode } = useQuery({
-        queryKey: ['product-by-barcode'],
-        queryFn: () => null,
-        enabled: false,
+    // Fetch categories
+    const { data: categoriesData } = useQuery({
+        queryKey: ['pos-categories'],
+        queryFn: async () => {
+            const response = await api.get('/products/categories');
+            return response.data;
+        },
     });
+    const categories = categoriesData?.data || [];
+
+    // Barcode scanner integration
 
     useBarcodeScanner({
         onScan: async (barcode) => {
             try {
                 // Search for product by barcode
-                const response = await api.get<{ success: boolean; data: { products: Product[] } }>(
+                const response = await api.get<PaginatedResponse<Product>>(
                     '/products',
                     { params: { search: barcode, pageSize: 1 } }
                 );
 
-                const products = response.data.data.products;
+                const products = response.data.data;
                 if (products.length > 0) {
+                    if (products[0].availableQuantity !== undefined && products[0].availableQuantity <= 0) {
+                        toast.error(`Cannot add ${products[0].name}. Out of stock.`);
+                        return;
+                    }
                     handleProductSelect(products[0]);
                 } else {
                     toast.error(`No product found for barcode: ${barcode}`);
@@ -170,25 +183,21 @@ export default function POSPage() {
     // Create sale mutation
     const createSaleMutation = useMutation({
         mutationFn: async (paymentData: PaymentData) => {
-            const response = await api.post('/sales', {
+            const response = await api.post('/pos/checkout', {
                 items: items.map((item) => ({
                     productId: item.productId,
                     variantId: item.variantId,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
-                    discount: item.discount,
-                    taxRate: item.taxRate,
+                    discount: item.discount || 0,
                 })),
-                customerId: customer?.id,
+                customerId: customer?.id || undefined,
                 notes,
-                payment: {
+                payments: [{
                     method: paymentData.method,
                     amount: paymentData.amountPaid,
-                    reference: paymentData.reference,
-                },
-                subtotal,
-                taxAmount: taxTotal,
-                grandTotal,
+                    transactionId: paymentData.reference,
+                }],
             });
             return response.data;
         },
@@ -200,8 +209,12 @@ export default function POSPage() {
             toast.success('Sale completed successfully!');
             // TODO: Show receipt or print
         },
-        onError: () => {
-            toast.error('Failed to complete sale');
+        onError: (error: any) => {
+            console.error('Checkout error:', error.response?.data);
+            const errorMsg = error.response?.data?.error?.details
+                ? JSON.stringify(error.response.data.error.details)
+                : error.response?.data?.error?.message || 'Failed to complete sale';
+            toast.error(errorMsg);
         },
     });
 
@@ -255,8 +268,32 @@ export default function POSPage() {
                             </div>
                         </div>
 
+                        {/* Categories */}
+                        <div className="px-4 py-2 border-b overflow-x-auto flex items-center gap-2 no-scrollbar">
+                            <Badge
+                                variant={!selectedCategory ? 'default' : 'secondary'}
+                                className="cursor-pointer whitespace-nowrap text-sm py-1"
+                                onClick={() => setSelectedCategory(undefined)}
+                            >
+                                All Items
+                            </Badge>
+                            {categories.map((cat: any) => (
+                                <Badge
+                                    key={cat.id}
+                                    variant={selectedCategory === cat.id ? 'default' : 'secondary'}
+                                    className="cursor-pointer whitespace-nowrap text-sm py-1"
+                                    onClick={() => setSelectedCategory(cat.id)}
+                                >
+                                    {cat.name}
+                                </Badge>
+                            ))}
+                        </div>
+
                         {/* Product grid */}
-                        <ProductGrid onProductSelect={handleProductSelect} />
+                        <ProductGrid
+                            onProductSelect={handleProductSelect}
+                            categoryFilter={selectedCategory}
+                        />
                     </div>
                 }
                 rightPanel={
@@ -264,6 +301,7 @@ export default function POSPage() {
                         onPayment={() => setShowPayment(true)}
                         onHold={handleHoldOrder}
                         onRecall={() => setShowHeldOrders(true)}
+                        onAddCustomer={() => setShowCustomerSelect(true)}
                     />
                 }
             >
@@ -275,6 +313,7 @@ export default function POSPage() {
                 open={showPayment}
                 onClose={() => setShowPayment(false)}
                 onComplete={handlePaymentComplete}
+                isPending={createSaleMutation.isPending}
             />
 
             {/* Held orders modal */}
@@ -282,6 +321,14 @@ export default function POSPage() {
                 open={showHeldOrders}
                 onClose={() => setShowHeldOrders(false)}
                 onRecall={handleRecallOrder}
+            />
+
+            {/* Customer select modal */}
+            <CustomerSelectModal
+                open={showCustomerSelect}
+                onClose={() => setShowCustomerSelect(false)}
+                onSelect={(selectedCustomer) => useCartStore.getState().setCustomer(selectedCustomer)}
+                currentCustomerId={customer?.id}
             />
         </>
     );

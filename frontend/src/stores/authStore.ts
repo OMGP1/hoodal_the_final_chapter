@@ -48,6 +48,7 @@ export const useAuthStore = create<AuthState>()(
                             phone: null,
                             roleId: null,
                             isActive: true,
+                            permissions: user.permissions || [],
                             lastLogin: new Date().toISOString(),
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString(),

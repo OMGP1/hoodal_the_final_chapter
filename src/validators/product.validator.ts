@@ -30,9 +30,9 @@ export const productQuerySchema = z.object({
     pageSize: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 20)),
     q: z.string().optional(),
     categoryId: z.string().uuid().optional(),
-    isActive: z.string().optional().transform((val) => val === 'true'),
-    isPerishable: z.string().optional().transform((val) => val === 'true'),
-    lowStock: z.string().optional().transform((val) => val === 'true'),
+    isActive: z.string().optional().transform((val) => val !== undefined ? val === 'true' : undefined),
+    isPerishable: z.string().optional().transform((val) => val !== undefined ? val === 'true' : undefined),
+    lowStock: z.string().optional().transform((val) => val !== undefined ? val === 'true' : undefined),
     sortBy: z.enum(['name', 'sku', 'sellingPrice', 'createdAt']).optional().default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });

@@ -1,6 +1,7 @@
 @import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@theme {
   /* Colors */
   --color-background: oklch(1 0 0);
   --color-foreground: oklch(0.145 0 0);
@@ -26,7 +27,7 @@
   --color-chart-3: oklch(0.398 0.07 227.392);
   --color-chart-4: oklch(0.828 0.189 84.429);
   --color-chart-5: oklch(0.769 0.188 70.08);
-  
+
   /* Status colors */
   --color-success: oklch(0.723 0.191 142.5);
   --color-warning: oklch(0.795 0.184 86.047);
@@ -91,6 +92,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -103,13 +105,16 @@
     width: 8px;
     height: 8px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     background: oklch(0.708 0 0 / 0.3);
     border-radius: 4px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: oklch(0.556 0 0 / 0.5);
   }
@@ -120,25 +125,32 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
 }
 
 @keyframes bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(-25%);
     animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
   }
+
   50% {
     transform: translateY(0);
     animation-timing-function: cubic-bezier(0, 0, 0.2, 1);

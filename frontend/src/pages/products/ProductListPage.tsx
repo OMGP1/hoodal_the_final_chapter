@@ -68,7 +68,12 @@ function useProducts(params: ProductQueryParams) {
     return useQuery({
         queryKey: ['products', params],
         queryFn: async () => {
-            const response = await api.get<PaginatedResponse<Product>>('/products', { params });
+            const apiParams: any = { ...params };
+            if (apiParams.search) {
+                apiParams.q = apiParams.search;
+                delete apiParams.search;
+            }
+            const response = await api.get<PaginatedResponse<Product>>('/products', { params: apiParams });
             return response.data;
         },
         placeholderData: (previousData) => previousData,
@@ -133,12 +138,16 @@ export default function ProductListPage() {
             header: 'Product',
             cell: ({ row }) => {
                 const product = row.original;
+                const apiBase = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+                const imgSrc = product.imageUrl
+                    ? (product.imageUrl.startsWith('http') ? product.imageUrl : `${apiBase}${product.imageUrl}`)
+                    : null;
                 return (
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                            {product.imageUrl ? (
+                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                            {imgSrc ? (
                                 <img
-                                    src={product.imageUrl}
+                                    src={imgSrc}
                                     alt={product.name}
                                     className="h-10 w-10 rounded-lg object-cover"
                                 />

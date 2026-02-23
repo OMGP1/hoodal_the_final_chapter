@@ -4,6 +4,7 @@ import { AppError } from '../middleware/error.middleware';
 import { ErrorCodes } from '../utils/response';
 import { Decimal } from '@prisma/client/runtime/library';
 
+
 interface CheckInInput {
     notes?: string;
 }
@@ -20,6 +21,55 @@ interface LeaveRequestInput {
 }
 
 export class StaffService {
+    /**
+     * List all staff members (users) with search and pagination
+     */
+    async listStaff(params: { search?: string; page?: number; pageSize?: number }) {
+        const page = params.page || 1;
+        const pageSize = Math.min(params.pageSize || 50, 100);
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.UserWhereInput = {};
+        if (params.search) {
+            where.OR = [
+                { firstName: { contains: params.search, mode: 'insensitive' } },
+                { lastName: { contains: params.search, mode: 'insensitive' } },
+                { email: { contains: params.search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                    isActive: true,
+                    lastLogin: true,
+                    createdAt: true,
+                    role: { select: { id: true, name: true } },
+                },
+            }),
+            prisma.user.count({ where }),
+        ]);
+
+        return {
+            data: users,
+            pagination: {
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize),
+                totalRecords: total,
+            },
+        };
+    }
+
     /**
      * Clock in for the day
      */

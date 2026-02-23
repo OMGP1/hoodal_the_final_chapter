@@ -4,6 +4,21 @@ import { sendSuccess } from '../utils/response';
 import { asyncHandler } from '../middleware/error.middleware';
 
 /**
+ * List all orders with pagination, search, and filters
+ */
+export const listOrders = asyncHandler(async (req: Request, res: Response) => {
+    const result = await orderService.listOrders({
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 50,
+        search: req.query.search as string,
+        paymentStatus: req.query.paymentStatus as string,
+        dateFrom: req.query.dateFrom as string,
+        dateTo: req.query.dateTo as string,
+    });
+    sendSuccess(res, result);
+});
+
+/**
  * Validate cart before checkout
  */
 export const validateCart = asyncHandler(async (req: Request, res: Response) => {
