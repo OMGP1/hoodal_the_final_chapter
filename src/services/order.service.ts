@@ -338,7 +338,73 @@ export class OrderService {
     }
 
     /**
-     * Get order by ID
+     * List orders with pagination, search, and filters
+     */
+    async listOrders(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        paymentStatus?: string;
+        dateFrom?: string;
+        dateTo?: string;
+    }) {
+        const page = params.page || 1;
+        const limit = Math.min(params.limit || 50, 100);
+        const skip = (page - 1) * limit;
+
+        const where: Prisma.SalesOrderWhereInput = {};
+
+        if (params.search) {
+            where.orderNumber = { contains: params.search, mode: 'insensitive' };
+        }
+
+        if (params.paymentStatus) {
+            where.paymentStatus = params.paymentStatus;
+        }
+
+        if (params.dateFrom || params.dateTo) {
+            where.orderDate = {};
+            if (params.dateFrom) {
+                where.orderDate.gte = new Date(params.dateFrom);
+            }
+            if (params.dateTo) {
+                const to = new Date(params.dateTo);
+                to.setHours(23, 59, 59, 999);
+                where.orderDate.lte = to;
+            }
+        }
+
+        const [orders, total] = await Promise.all([
+            prisma.salesOrder.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { orderDate: 'desc' },
+                include: {
+                    customer: {
+                        select: { id: true, name: true, phone: true },
+                    },
+                    _count: {
+                        select: { items: true },
+                    },
+                },
+            }),
+            prisma.salesOrder.count({ where }),
+        ]);
+
+        return {
+            orders,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
+
+    /**
+     * Get order by ID (with product names manually joined)
      */
     async getOrderById(id: string) {
         const order = await prisma.salesOrder.findUnique({
@@ -354,7 +420,34 @@ export class OrderService {
             throw new AppError(ErrorCodes.NOT_FOUND, 'Order not found', 404);
         }
 
-        return order;
+        // Manually fetch product and variant names for line items
+        const productIds = [...new Set(order.items.map((i: any) => i.productId))];
+        const variantIds = [...new Set(order.items.filter((i: any) => i.variantId).map((i: any) => i.variantId))];
+
+        const [products, variants] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, name: true, sku: true },
+            }),
+            variantIds.length > 0
+                ? prisma.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: { id: true, name: true },
+                })
+                : [],
+        ]);
+
+        const productMap = new Map(products.map((p: any) => [p.id, p]));
+        const variantMap = new Map(variants.map((v: any) => [v.id, v]));
+
+        const itemsWithNames = order.items.map((item: any) => ({
+            ...item,
+            productName: productMap.get(item.productId)?.name || 'Unknown Product',
+            productSku: productMap.get(item.productId)?.sku || '',
+            variantName: item.variantId ? (variantMap.get(item.variantId)?.name || null) : null,
+        }));
+
+        return { ...order, items: itemsWithNames };
     }
 
     /**

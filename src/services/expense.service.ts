@@ -58,6 +58,44 @@ export class ExpenseService {
     }
 
     /**
+     * Update an expense
+     */
+    async updateExpense(expenseId: string, data: Partial<CreateExpenseInput>, userId: string) {
+        const expense = await prisma.expense.findUnique({
+            where: { id: expenseId },
+        });
+
+        if (!expense) {
+            throw new AppError(ErrorCodes.NOT_FOUND, 'Expense not found', 404);
+        }
+
+        if (expense.status !== 'pending') {
+            throw new AppError(
+                ErrorCodes.BUSINESS_ERROR,
+                'Only pending expenses can be edited',
+                400
+            );
+        }
+
+        return prisma.expense.update({
+            where: { id: expenseId },
+            data: {
+                categoryId: data.categoryId !== undefined ? data.categoryId : undefined,
+                amount: data.amount !== undefined ? data.amount : undefined,
+                description: data.description !== undefined ? data.description : undefined,
+                expenseDate: data.expenseDate !== undefined ? data.expenseDate : undefined,
+                paymentMethod: data.paymentMethod !== undefined ? data.paymentMethod : undefined,
+                receiptUrl: data.receiptUrl !== undefined ? data.receiptUrl : undefined,
+                vendorName: data.vendorName !== undefined ? data.vendorName : undefined,
+            },
+            include: {
+                category: true,
+                createdByUser: { select: { id: true, email: true, firstName: true } },
+            },
+        });
+    }
+
+    /**
      * Approve or reject an expense
      */
     async processExpense(

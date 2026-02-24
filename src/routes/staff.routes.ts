@@ -9,6 +9,19 @@ const router = Router();
 // All staff routes require authentication
 router.use(authenticate);
 
+// ==================== STAFF LIST ====================
+
+/**
+ * @route   GET /api/v1/staff
+ * @desc    List all staff members
+ * @access  Private (staff read permission)
+ */
+router.get(
+    '/',
+    authorize(PERMISSIONS.STAFF_READ),
+    staffController.listStaff
+);
+
 // ==================== ATTENDANCE (Self-service) ====================
 
 /**

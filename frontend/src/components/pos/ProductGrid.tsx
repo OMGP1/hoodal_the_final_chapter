@@ -4,25 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import api from '@/lib/api';
-import type { Product } from '@/types';
+import type { Product, PaginatedResponse } from '@/types';
 
 interface ProductGridProps {
     onProductSelect: (product: Product) => void;
     categoryFilter?: string;
 }
 
-interface ProductsResponse {
-    products: Product[];
-    total: number;
-    page: number;
-    pageSize: number;
-}
-
 export function ProductGrid({ onProductSelect, categoryFilter }: ProductGridProps) {
     const { data, isLoading, error } = useQuery({
         queryKey: ['pos-products', categoryFilter],
         queryFn: async () => {
-            const response = await api.get<{ success: boolean; data: ProductsResponse }>(
+            const response = await api.get<PaginatedResponse<Product>>(
                 '/products',
                 {
                     params: {
@@ -32,12 +25,12 @@ export function ProductGrid({ onProductSelect, categoryFilter }: ProductGridProp
                     },
                 }
             );
-            return response.data.data;
+            return response.data;
         },
         staleTime: 60000, // Cache for 1 minute
     });
 
-    const products = data?.products || [];
+    const products = data?.data || [];
 
     if (isLoading) {
         return (
@@ -86,10 +79,12 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, onClick }: ProductCardProps) {
-    // Determine stock status (would need inventory data)
-    // TODO: Get actual stock status from inventory service
     const getStockStatus = (): 'in_stock' | 'low_stock' | 'out_of_stock' => {
-        // Placeholder - will be replaced with actual inventory check
+        if (product.availableQuantity === undefined || product.availableQuantity === null) {
+            return 'in_stock'; // Fallback if data is missing
+        }
+        if (product.availableQuantity <= 0) return 'out_of_stock';
+        if (product.isLowStock || product.availableQuantity <= (product.reorderLevel || 5)) return 'low_stock';
         return 'in_stock';
     };
 
@@ -109,15 +104,19 @@ function ProductCard({ product, onClick }: ProductCardProps) {
             onClick={onClick}
             disabled={isOutOfStock}
         >
-            {/* Product image placeholder */}
-            <div className="w-full aspect-square bg-muted rounded-md flex items-center justify-center">
-                {product.imageUrl ? (
-                    <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover rounded-md"
-                    />
-                ) : (
+            {/* Product image */}
+            <div className="w-full aspect-square bg-muted rounded-md flex items-center justify-center overflow-hidden">
+                {product.imageUrl ? (() => {
+                    const apiBase = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+                    const imgSrc = product.imageUrl.startsWith('http') ? product.imageUrl : `${apiBase}${product.imageUrl}`;
+                    return (
+                        <img
+                            src={imgSrc}
+                            alt={product.name}
+                            className="w-full h-full object-cover rounded-md"
+                        />
+                    );
+                })() : (
                     <Package className="h-8 w-8 text-muted-foreground/50" />
                 )}
             </div>

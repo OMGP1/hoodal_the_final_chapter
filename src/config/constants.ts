@@ -62,11 +62,20 @@ export const PERMISSIONS = {
     SUPPLIERS_READ: 'suppliers.read',
     SUPPLIERS_WRITE: 'suppliers.write',
 
+    // Customers
+    CUSTOMERS_READ: 'customers.read',
+    CUSTOMERS_WRITE: 'customers.write',
+    CUSTOMERS_DELETE: 'customers.delete',
+
     // Purchase Orders
     PURCHASE_CREATE: 'purchase.create',
     PURCHASE_READ: 'purchase.read',
     PURCHASE_UPDATE: 'purchase.update',
     PURCHASE_RECEIVE: 'purchase.receive',
+
+    // Settings
+    SETTINGS_READ: 'settings.read',
+    SETTINGS_WRITE: 'settings.write',
 
     // Dashboard
     DASHBOARD_VIEW: 'dashboard.view',
@@ -83,6 +92,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         PERMISSIONS.INVENTORY_ADJUST,
         PERMISSIONS.POS_ACCESS,
         PERMISSIONS.POS_REFUND,
+        PERMISSIONS.SALES_READ,
+        PERMISSIONS.SALES_WRITE,
         PERMISSIONS.ORDERS_READ,
         PERMISSIONS.ORDERS_WRITE,
         PERMISSIONS.ORDERS_CANCEL,
@@ -92,15 +103,21 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         PERMISSIONS.EXPENSES_WRITE,
         PERMISSIONS.SUPPLIERS_READ,
         PERMISSIONS.SUPPLIERS_WRITE,
+        PERMISSIONS.CUSTOMERS_READ,
+        PERMISSIONS.CUSTOMERS_WRITE,
+        PERMISSIONS.SETTINGS_READ,
         PERMISSIONS.DASHBOARD_VIEW,
     ],
     [ROLES.STAFF]: [
         PERMISSIONS.PRODUCTS_READ,
         PERMISSIONS.INVENTORY_READ,
         PERMISSIONS.POS_ACCESS,
+        PERMISSIONS.SALES_READ,
         PERMISSIONS.ORDERS_READ,
         PERMISSIONS.ORDERS_WRITE,
         PERMISSIONS.DASHBOARD_VIEW,
+        PERMISSIONS.CUSTOMERS_READ,
+        PERMISSIONS.CUSTOMERS_WRITE,
     ],
     [ROLES.CUSTOMER]: [
         PERMISSIONS.PRODUCTS_READ,

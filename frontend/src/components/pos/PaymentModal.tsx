@@ -24,6 +24,7 @@ interface PaymentModalProps {
     open: boolean;
     onClose: () => void;
     onComplete: (paymentData: PaymentData) => void;
+    isPending?: boolean;
 }
 
 export interface PaymentData {
@@ -44,7 +45,7 @@ const PAYMENT_METHODS = [
 
 const QUICK_CASH_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 
-export function PaymentModal({ open, onClose, onComplete }: PaymentModalProps) {
+export function PaymentModal({ open, onClose, onComplete, isPending }: PaymentModalProps) {
     const { grandTotal } = useCartTotals();
     const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
     const [amountPaid, setAmountPaid] = useState(grandTotal);
@@ -217,11 +218,14 @@ export function PaymentModal({ open, onClose, onComplete }: PaymentModalProps) {
                     {/* Complete payment button */}
                     <Button
                         className="w-full h-14 text-lg font-semibold"
-                        disabled={!isPaymentValid}
+                        disabled={!isPaymentValid || isPending}
                         onClick={handleComplete}
                     >
-                        <Check className="h-5 w-5 mr-2" />
-                        Complete Payment
+                        {isPending ? (
+                            <><span className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"></span> Processing...</>
+                        ) : (
+                            <><Check className="h-5 w-5 mr-2" /> Complete Payment</>
+                        )}
                     </Button>
                 </div>
             </DialogContent>

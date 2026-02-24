@@ -4,16 +4,11 @@ import { Search, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
-import type { Product } from '@/types';
+import type { Product, PaginatedResponse } from '@/types';
 
 interface ProductSearchProps {
     onProductSelect: (product: Product) => void;
     inputRef?: React.RefObject<HTMLInputElement>;
-}
-
-interface SearchResult {
-    products: Product[];
-    total: number;
 }
 
 export function ProductSearch({ onProductSelect, inputRef }: ProductSearchProps) {
@@ -39,9 +34,9 @@ export function ProductSearch({ onProductSelect, inputRef }: ProductSearchProps)
         queryKey: ['pos-product-search', debouncedQuery],
         queryFn: async () => {
             if (!debouncedQuery || debouncedQuery.length < 2) {
-                return { products: [], total: 0 };
+                return null;
             }
-            const response = await api.get<{ success: boolean; data: SearchResult }>(
+            const response = await api.get<PaginatedResponse<Product>>(
                 '/products',
                 {
                     params: {
@@ -51,13 +46,13 @@ export function ProductSearch({ onProductSelect, inputRef }: ProductSearchProps)
                     },
                 }
             );
-            return response.data.data;
+            return response.data;
         },
         enabled: debouncedQuery.length >= 2,
         staleTime: 30000, // Cache for 30 seconds
     });
 
-    const products = data?.products || [];
+    const products = data?.data || [];
 
     // Reset selected index when results change
     useEffect(() => {
@@ -151,8 +146,8 @@ export function ProductSearch({ onProductSelect, inputRef }: ProductSearchProps)
                                 <li
                                     key={product.id}
                                     className={`px-3 py-2 cursor-pointer flex items-center justify-between gap-4 ${index === selectedIndex
-                                            ? 'bg-accent'
-                                            : 'hover:bg-muted'
+                                        ? 'bg-accent'
+                                        : 'hover:bg-muted'
                                         }`}
                                     onClick={() => handleSelect(product)}
                                     onMouseEnter={() => setSelectedIndex(index)}

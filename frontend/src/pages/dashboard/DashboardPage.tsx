@@ -21,7 +21,7 @@ import {
     Bar,
 } from 'recharts';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -31,82 +31,83 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface DashboardMetrics {
-    todaySales: {
-        revenue: number;
-        orders: number;
-        itemsSold: number;
-        change: number;
-    };
-    weeklySales: {
-        revenue: number;
-        change: number;
-        data: { date: string; revenue: number }[];
-    };
+// ── Backend shapes ──────────────────────────────────────────
+
+interface OverviewData {
+    todaySales: { revenue: number; orders: number; items: number };
+    weeklySales: { revenue: number; change: number };
+    monthlySales: { revenue: number; change: number };
     lowStockCount: number;
     expiringCount: number;
     pendingOrders: number;
-    topProducts: {
-        id: string;
-        name: string;
-        quantity: number;
-        revenue: number;
-    }[];
-    recentTransactions: {
-        id: string;
-        orderNumber: string;
-        customerName: string;
-        total: number;
-        status: string;
-        createdAt: string;
-    }[];
+    outstandingPayments: number;
 }
 
-function useDashboardMetrics() {
+interface TrendPoint {
+    date: string;
+    revenue: number;
+    orders: number;
+}
+
+interface TopProduct {
+    product: { id: string; name: string; sku: string } | null;
+    totalQuantity: number;
+    totalRevenue: number;
+}
+
+interface RecentOrder {
+    id: string;
+    orderNumber: string;
+    totalAmount: number;
+    paymentStatus: string;
+    orderDate: string;
+    customer?: { firstName: string; lastName: string } | null;
+}
+
+// ── Queries ─────────────────────────────────────────────────
+
+function useOverview() {
     return useQuery({
-        queryKey: ['dashboard-metrics'],
+        queryKey: ['dashboard-overview'],
         queryFn: async () => {
-            const response = await api.get<{ success: boolean; data: DashboardMetrics }>(
-                '/dashboard/overview'
-            );
-            return response.data.data;
+            const res = await api.get<{ success: boolean; data: OverviewData }>('/dashboard/overview');
+            return res.data.data;
         },
-        // Fallback data for demo
-        placeholderData: {
-            todaySales: { revenue: 15420, orders: 23, itemsSold: 87, change: 12.5 },
-            weeklySales: {
-                revenue: 87500,
-                change: 8.3,
-                data: [
-                    { date: 'Mon', revenue: 12500 },
-                    { date: 'Tue', revenue: 15200 },
-                    { date: 'Wed', revenue: 11800 },
-                    { date: 'Thu', revenue: 13400 },
-                    { date: 'Fri', revenue: 16800 },
-                    { date: 'Sat', revenue: 9500 },
-                    { date: 'Sun', revenue: 8300 },
-                ],
-            },
-            lowStockCount: 12,
-            expiringCount: 5,
-            pendingOrders: 8,
-            topProducts: [
-                { id: '1', name: 'Amul Milk 1L', quantity: 145, revenue: 7250 },
-                { id: '2', name: 'Parle-G Biscuits', quantity: 120, revenue: 2400 },
-                { id: '3', name: 'Tata Salt 1kg', quantity: 95, revenue: 2850 },
-                { id: '4', name: 'Fortune Oil 1L', quantity: 72, revenue: 10800 },
-                { id: '5', name: 'Maggi Noodles', quantity: 68, revenue: 952 },
-            ],
-            recentTransactions: [
-                { id: '1', orderNumber: 'ORD-001', customerName: 'Walk-in', total: 850, status: 'paid', createdAt: new Date().toISOString() },
-                { id: '2', orderNumber: 'ORD-002', customerName: 'Rahul Sharma', total: 1250, status: 'paid', createdAt: new Date().toISOString() },
-                { id: '3', orderNumber: 'ORD-003', customerName: 'Walk-in', total: 320, status: 'paid', createdAt: new Date().toISOString() },
-                { id: '4', orderNumber: 'ORD-004', customerName: 'Priya Singh', total: 2100, status: 'pending', createdAt: new Date().toISOString() },
-                { id: '5', orderNumber: 'ORD-005', customerName: 'Walk-in', total: 560, status: 'paid', createdAt: new Date().toISOString() },
-            ],
+        refetchInterval: 30_000, // auto-refresh every 30s
+    });
+}
+
+function useSalesTrend() {
+    return useQuery({
+        queryKey: ['dashboard-sales-trend'],
+        queryFn: async () => {
+            const res = await api.get<{ success: boolean; data: TrendPoint[] }>('/dashboard/sales-trend?days=7');
+            return res.data.data;
         },
     });
 }
+
+function useTopProducts() {
+    return useQuery({
+        queryKey: ['dashboard-top-products'],
+        queryFn: async () => {
+            const res = await api.get<{ success: boolean; data: TopProduct[] }>('/dashboard/top-products?limit=5');
+            return res.data.data;
+        },
+    });
+}
+
+function useRecentOrders() {
+    return useQuery({
+        queryKey: ['dashboard-recent-orders'],
+        queryFn: async (): Promise<RecentOrder[]> => {
+            const res = await api.get<{ success: boolean; data: { orders: RecentOrder[] } }>('/pos/orders?limit=10');
+            return res.data.data.orders;
+        },
+    });
+}
+
+// ── Sub-components ──────────────────────────────────────────
 
 function StatCard({
     title,
@@ -115,6 +116,7 @@ function StatCard({
     icon: Icon,
     subtitle,
     className,
+    href,
 }: {
     title: string;
     value: string | number;
@@ -122,9 +124,10 @@ function StatCard({
     icon: React.ElementType;
     subtitle?: string;
     className?: string;
+    href?: string;
 }) {
-    return (
-        <Card className={cn('relative overflow-hidden', className)}>
+    const content = (
+        <Card className={cn('relative overflow-hidden transition-all', href && 'cursor-pointer hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 hover:scale-[1.02]', className)}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -154,6 +157,9 @@ function StatCard({
             </CardContent>
         </Card>
     );
+
+    if (href) return <Link to={href}>{content}</Link>;
+    return content;
 }
 
 function AlertCard({
@@ -198,10 +204,15 @@ function AlertCard({
     );
 }
 
-export default function DashboardPage() {
-    const { data: metrics, isLoading } = useDashboardMetrics();
+// ── Main Page ───────────────────────────────────────────────
 
-    if (isLoading) {
+export default function DashboardPage() {
+    const { data: overview, isLoading: loadingOverview } = useOverview();
+    const { data: trend } = useSalesTrend();
+    const { data: topProducts } = useTopProducts();
+    const { data: recentOrders } = useRecentOrders();
+
+    if (loadingOverview) {
         return (
             <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -216,6 +227,21 @@ export default function DashboardPage() {
             </div>
         );
     }
+
+    // Format trend data for chart
+    const chartData = (trend || []).map((t) => ({
+        date: (() => { try { return format(parseISO(t.date), 'MMM d'); } catch { return t.date; } })(),
+        revenue: t.revenue,
+    }));
+
+    // Format top products for chart
+    const topProductsChart = (topProducts || [])
+        .filter((p) => p.product)
+        .map((p) => ({
+            name: p.product!.name.length > 18 ? p.product!.name.slice(0, 18) + '…' : p.product!.name,
+            quantity: p.totalQuantity,
+            revenue: p.totalRevenue,
+        }));
 
     return (
         <div className="space-y-6">
@@ -238,29 +264,32 @@ export default function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     title="Today's Revenue"
-                    value={`₹${(metrics?.todaySales?.revenue || 0).toLocaleString()}`}
-                    change={metrics?.todaySales?.change}
+                    value={`₹${(overview?.todaySales?.revenue || 0).toLocaleString()}`}
                     icon={DollarSign}
-                    subtitle="vs yesterday"
+                    subtitle={`${overview?.todaySales?.orders || 0} orders today`}
+                    href="/reports/sales?preset=today"
                 />
                 <StatCard
-                    title="Orders"
-                    value={metrics?.todaySales?.orders || 0}
+                    title="Items Sold Today"
+                    value={overview?.todaySales?.items || 0}
                     icon={ShoppingCart}
-                    subtitle={`${metrics?.todaySales?.itemsSold || 0} items sold`}
+                    subtitle={`${overview?.todaySales?.orders || 0} transactions`}
+                    href="/reports/sales?preset=today"
                 />
                 <StatCard
                     title="Weekly Revenue"
-                    value={`₹${(metrics?.weeklySales?.revenue || 0).toLocaleString()}`}
-                    change={metrics?.weeklySales?.change}
+                    value={`₹${(overview?.weeklySales?.revenue || 0).toLocaleString()}`}
+                    change={overview?.weeklySales?.change}
                     icon={TrendingUp}
                     subtitle="vs last week"
+                    href="/reports/sales?preset=this_week"
                 />
                 <StatCard
                     title="Pending Orders"
-                    value={metrics?.pendingOrders || 0}
+                    value={overview?.pendingOrders || 0}
                     icon={Clock}
                     subtitle="awaiting fulfillment"
+                    href="/purchases"
                 />
             </div>
 
@@ -268,25 +297,25 @@ export default function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <AlertCard
                     title="Low Stock Items"
-                    count={metrics?.lowStockCount || 0}
+                    count={overview?.lowStockCount || 0}
                     variant="warning"
                     href="/products/low-stock"
                 />
                 <AlertCard
                     title="Expiring Soon"
-                    count={metrics?.expiringCount || 0}
+                    count={overview?.expiringCount || 0}
                     variant="danger"
                     href="/inventory/expiring"
                 />
                 <AlertCard
-                    title="Online Orders"
-                    count={metrics?.pendingOrders || 0}
+                    title="Outstanding Payments"
+                    count={overview?.outstandingPayments ? 1 : 0}
                     variant="info"
-                    href="/orders/pending"
+                    href="/reports/sales"
                 />
             </div>
 
-            {/* Charts and tables */}
+            {/* Charts */}
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Sales trend chart */}
                 <Card>
@@ -296,13 +325,13 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="h-64 w-full min-h-[250px]">
-                            {metrics?.weeklySales?.data ? (
+                            {chartData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                    <AreaChart data={metrics.weeklySales.data}>
+                                    <AreaChart data={chartData}>
                                         <defs>
                                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                                                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -310,8 +339,8 @@ export default function DashboardPage() {
                                         <YAxis className="text-xs" />
                                         <Tooltip
                                             contentStyle={{
-                                                backgroundColor: 'hsl(var(--card))',
-                                                border: '1px solid hsl(var(--border))',
+                                                backgroundColor: 'var(--color-card)',
+                                                border: '1px solid var(--color-border)',
                                                 borderRadius: '8px',
                                             }}
                                             formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
@@ -319,7 +348,7 @@ export default function DashboardPage() {
                                         <Area
                                             type="monotone"
                                             dataKey="revenue"
-                                            stroke="hsl(var(--primary))"
+                                            stroke="var(--color-primary)"
                                             strokeWidth={2}
                                             fillOpacity={1}
                                             fill="url(#colorRevenue)"
@@ -339,33 +368,33 @@ export default function DashboardPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Top Selling Products</CardTitle>
-                        <CardDescription>By quantity sold this week</CardDescription>
+                        <CardDescription>By quantity sold (last 30 days)</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="h-64 w-full min-h-[250px]">
-                            {metrics?.topProducts ? (
+                            {topProductsChart.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                    <BarChart data={metrics.topProducts} layout="vertical">
+                                    <BarChart data={topProductsChart} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                                         <XAxis type="number" className="text-xs" />
                                         <YAxis
                                             dataKey="name"
                                             type="category"
                                             className="text-xs"
-                                            width={100}
+                                            width={120}
                                             tick={{ fontSize: 11 }}
                                         />
                                         <Tooltip
                                             contentStyle={{
-                                                backgroundColor: 'hsl(var(--card))',
-                                                border: '1px solid hsl(var(--border))',
+                                                backgroundColor: 'var(--color-card)',
+                                                border: '1px solid var(--color-border)',
                                                 borderRadius: '8px',
                                             }}
                                             formatter={(value: number) => [value, 'Qty Sold']}
                                         />
                                         <Bar
                                             dataKey="quantity"
-                                            fill="hsl(var(--primary))"
+                                            fill="var(--color-primary)"
                                             radius={[0, 4, 4, 0]}
                                         />
                                     </BarChart>
@@ -388,20 +417,20 @@ export default function DashboardPage() {
                         <CardDescription>Latest sales orders</CardDescription>
                     </div>
                     <Button variant="ghost" size="sm" asChild>
-                        <Link to="/orders">View all</Link>
+                        <Link to="/pos/sales-history">View all</Link>
                     </Button>
                 </CardHeader>
                 <CardContent>
                     <ScrollArea className="h-64">
                         <div className="space-y-4">
-                            {(metrics?.recentTransactions || []).length === 0 ? (
+                            {!recentOrders || recentOrders.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                     No recent transactions
                                 </div>
                             ) : (
-                                (metrics?.recentTransactions || []).map((tx) => (
+                                recentOrders.map((order: RecentOrder) => (
                                     <div
-                                        key={tx.id}
+                                        key={order.id}
                                         className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                                     >
                                         <div className="flex items-center gap-4">
@@ -409,17 +438,21 @@ export default function DashboardPage() {
                                                 <Package className="h-4 w-4 text-primary" />
                                             </div>
                                             <div>
-                                                <p className="font-medium">{tx.orderNumber}</p>
-                                                <p className="text-sm text-muted-foreground">{tx.customerName}</p>
+                                                <p className="font-medium">{order.orderNumber}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {order.customer
+                                                        ? `${order.customer.firstName} ${order.customer.lastName}`
+                                                        : 'Walk-in Customer'}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-bold">₹{tx.total.toLocaleString()}</p>
+                                            <p className="font-bold">₹{Number(order.totalAmount).toLocaleString()}</p>
                                             <Badge
-                                                variant={tx.status === 'paid' ? 'default' : 'secondary'}
+                                                variant={order.paymentStatus === 'paid' ? 'default' : 'secondary'}
                                                 className="text-xs"
                                             >
-                                                {tx.status}
+                                                {order.paymentStatus}
                                             </Badge>
                                         </div>
                                     </div>
@@ -450,7 +483,7 @@ export default function DashboardPage() {
                             </Link>
                         </Button>
                         <Button variant="outline" className="h-20 flex-col gap-2" asChild>
-                            <Link to="/purchases/new">
+                            <Link to="/purchase-orders/new">
                                 <TrendingUp className="h-6 w-6" />
                                 New Purchase
                             </Link>

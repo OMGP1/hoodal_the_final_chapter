@@ -11,6 +11,10 @@ import purchaseRoutes from './purchase.routes';
 import staffRoutes from './staff.routes';
 import expenseRoutes from './expense.routes';
 import reportRoutes from './report.routes';
+import supplierRoutes from './supplier.routes';
+import customerRoutes from './customer.routes';
+import settingsRoutes from './settings.routes';
+import auditRoutes from './audit.routes';
 
 const router = Router();
 
@@ -32,7 +36,10 @@ router.use('/purchase-orders', purchaseRoutes);
 router.use('/staff', staffRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/reports', reportRoutes);
+router.use('/suppliers', supplierRoutes);
+router.use('/customers', customerRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/audits', auditRoutes);
 
 export default router;
-
 

@@ -3,6 +3,17 @@ import { staffService } from '../services/staff.service';
 import { sendSuccess } from '../utils/response';
 import { asyncHandler } from '../middleware/error.middleware';
 
+// ==================== STAFF LISTING ====================
+
+export const listStaff = asyncHandler(async (req: Request, res: Response) => {
+    const result = await staffService.listStaff({
+        search: req.query.search as string,
+        page: parseInt(req.query.page as string) || 1,
+        pageSize: parseInt(req.query.pageSize as string) || 50,
+    });
+    sendSuccess(res, result);
+});
+
 // ==================== ATTENDANCE ====================
 
 export const checkIn = asyncHandler(async (req: Request, res: Response) => {

@@ -39,6 +39,7 @@ export interface LoginResponse {
         firstName: string | null;
         lastName: string | null;
         role: string;
+        permissions: string[];
     };
     tokens: AuthTokens;
 }

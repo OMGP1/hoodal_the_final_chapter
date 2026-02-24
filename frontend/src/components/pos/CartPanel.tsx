@@ -9,9 +9,10 @@ interface CartPanelProps {
     onPayment: () => void;
     onHold: () => void;
     onRecall: () => void;
+    onAddCustomer: () => void;
 }
 
-export function CartPanel({ onPayment, onHold, onRecall }: CartPanelProps) {
+export function CartPanel({ onPayment, onHold, onRecall, onAddCustomer }: CartPanelProps) {
     const items = useCartStore((state) => state.items);
     const customer = useCartStore((state) => state.customer);
     const notes = useCartStore((state) => state.notes);
@@ -39,6 +40,7 @@ export function CartPanel({ onPayment, onHold, onRecall }: CartPanelProps) {
                     variant="outline"
                     size="sm"
                     className="w-full mt-3 justify-start"
+                    onClick={onAddCustomer}
                 >
                     <User className="h-4 w-4 mr-2" />
                     {customer ? customer.name : 'Add Customer (Optional)'}

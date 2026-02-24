@@ -21,6 +21,8 @@ export interface Product {
     createdAt: string;
     updatedAt: string;
     inventoryItems?: InventoryItem[];
+    availableQuantity?: number;
+    isLowStock?: boolean;
 }
 
 export interface ProductCategory {

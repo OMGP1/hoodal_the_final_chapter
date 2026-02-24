@@ -109,6 +109,17 @@ router.delete(
 // ==================== ORDER RETRIEVAL ====================
 
 /**
+ * @route   GET /api/v1/pos/orders
+ * @desc    List all orders with pagination and filters
+ * @access  Private (sales permission)
+ */
+router.get(
+    '/orders',
+    authorize(PERMISSIONS.SALES_READ),
+    posController.listOrders
+);
+
+/**
  * @route   GET /api/v1/pos/orders/:id
  * @desc    Get order by ID
  * @access  Private (sales permission)
